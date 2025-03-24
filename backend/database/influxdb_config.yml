@@ -1,0 +1,22 @@
+# InfluxDB Configuration
+version: 2
+host: influxdb-service
+port: 8086
+org: smart-city
+bucket: air-quality
+token: $INFLUX_TOKEN
+read_timeout: 30
+write_timeout: 30
+
+retention_policies:
+  raw_data: 30d
+  aggregated: 180d
+
+continuous_queries:
+  - name: hourly_avg
+    query: >
+      SELECT MEAN(pm25) AS avg_pm25,
+             MEAN(pm10) AS avg_pm10
+      INTO air-quality.autogen.aggregated
+      FROM air-quality.autogen.raw
+      GROUP BY time(1h), sensor_id
