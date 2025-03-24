@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <style>
+    .arjs-loader { height: 100%; width: 100%; position: absolute; 
+      top: 0; left: 0; background-color: rgba(0, 0, 0, 0.8);
+      z-index: 9999; display: flex; justify-content: center; 
+      align-items: center; color: white; }
+  </style>
+</head>
+<body style="margin: 0; overflow: hidden;">
+  <div class="arjs-loader">
+    <div>Loading AR experience...</div>
+  </div>
+
+  <a-scene 
+    vr-mode-ui="enabled: false" 
+    arjs="sourceType: webcam; debugUIEnabled: false"
+    renderer="logarithmicDepthBuffer: true;"
+  >
+    <a-camera gps-camera rotation-reader></a-camera>
+    
+    <!-- Dynamic Pollution Markers -->
+    <a-entity id="pollution-markers"></a-entity>
+
+    <!-- Location Marker Template -->
+    <script id="marker-template" type="text/html">
+      <a-entity class="pollution-marker">
+        <a-cone 
+          color="${color}"
+          height="${height}"
+          radius-bottom="0.5"
+          radius-top="0.1"
+          position="0 ${height/2} 0"
+        ></a-cone>
+        <a-text 
+          value="${value} µg/m³"
+          color="#ffffff"
+          align="center"
+          position="0 ${height + 0.5} 0"
+          scale="2 2 2"
+        ></a-text>
+      </a-entity>
+    </script>
+  </a-scene>
+
+  <script>
+    const API_URL = 'https://your-api.com/sensors';
+    const UPDATE_INTERVAL = 15000;
+    const SCALE_FACTOR = 0.1;
+
+    let currentMarkers = new Map();
+
+    function updateMarkers() {
+      axios.get(API_URL)
+        .then(response => {
+          response.data.forEach(sensor => {
+            const markerId = `sensor-${sensor.id}`;
+            const existingMarker = document.getElementById(markerId);
+            
+            const height = sensor.pm25 * SCALE_FACTOR;
+            const color = getColorForPM25(sensor.pm25);
+
+            if (!existingMarker) {
+              const newMarker = document.createElement('a-entity');
+              newMarker.setAttribute('gps-entity-place', {
+                latitude: sensor.lat,
+                longitude: sensor.lng
+              });
+              newMarker.setAttribute('template', 'src', '#marker-template');
+              newMarker.setAttribute('template', 'data', {
+                color: color,
+                height: height,
+                value: sensor.pm25.toFixed(1)
+              });
+              newMarker.id = markerId;
+              document.getElementById('pollution-markers').appendChild(newMarker);
+            } else {
+              existingMarker.setAttribute('template', 'data', {
+                color: color,
+                height: height,
+                value: sensor.pm25.toFixed(1)
+              });
+            }
+            
+            currentMarkers.set(markerId, true);
+          });
+
+          // Remove old markers
+          document.querySelectorAll('.pollution-marker').forEach(marker => {
+            if (!currentMarkers.has(marker.id)) {
+              marker.parentNode.removeChild(marker);
+            }
+          });
+        })
+        .catch(error => console.error('AR data fetch failed:', error));
+    }
+
+    function getColorForPM25(value) {
+      if (value < 12) return '#00FF00';
+      if (value < 35) return '#FFFF00';
+      if (value < 55) return '#FFA500';
+      return '#FF0000';
+    }
+
+    // Initial load
+    document.querySelector('.arjs-loader').style.display = 'none';
+    setInterval(updateMarkers, UPDATE_INTERVAL);
+    updateMarkers();
+  </script>
+</body>
+</html>
