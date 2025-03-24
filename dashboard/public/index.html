@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="description" content="Smart City Air Quality Dashboard" />
+  <!-- AR.js Requirements -->
+  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+  <!-- Mapbox GL -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.8.2/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.8.2/mapbox-gl.js"></script>
+  <title>Air Quality Dashboard</title>
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #888; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
+    
+    /* AR Overlay Fixes */
+    .arjs-loader { height: 100%; width: 100%; position: absolute; 
+      top: 0; left: 0; background-color: rgba(0, 0, 0, 0.8);
+      z-index: 9999; display: flex; justify-content: center; 
+      align-items: center; color: white; }
+    .arjs-loader div { text-align: center; font-size: 1.25em; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <!-- Loading script for AR -->
+  <script>
+    window.onload = () => {
+      const loader = document.createElement('div');
+      loader.className = 'arjs-loader';
+      loader.innerHTML = '<div>Loading AR experience...</div>';
+      document.body.appendChild(loader);
+      
+      window.addEventListener('arjs-nft-loaded', () => {
+        document.body.removeChild(loader);
+      });
+    };
+  </script>
+</body>
+</html>
