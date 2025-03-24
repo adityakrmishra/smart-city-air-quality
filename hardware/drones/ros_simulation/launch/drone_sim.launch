@@ -1,0 +1,14 @@
+<launch>
+    <!-- Drone simulation nodes -->
+    <node pkg="smart_city" type="drone_controller.py" name="drone_controller" output="screen"/>
+    
+    <!-- Simulated GPS -->
+    <node pkg="rostopic" type="rostopic" name="fake_gps"
+          args="pub /drone/position sensor_msgs/NavSatFix 
+          '{latitude: 40.0, longitude: -75.0, altitude: 100}' -r 10"/>
+    
+    <!-- Pollution alert simulator -->
+    <node pkg="rostopic" type="rostopic" name="fake_alert"
+          args="pub /pollution_alert smart_city/PollutionAlert 
+          '{location: {latitude: 40.001, longitude: -75.002}, severity: 8.5}' -r 0.1"/>
+</launch>
