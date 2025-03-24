@@ -140,3 +140,86 @@ These files provide:
 
 The system is designed for easy setup with Docker and clear documentation following best practices for open-source projects.
 ```
+
+## Project structure
+```
+smart-city-air-quality/
+├── hardware/                     # IoT Sensor and Drone Code
+│   ├── sensors/
+│   │   ├── firmware/            # ESP32/Raspberry Pi code for sensors
+│   │   │   ├── main.ino         # Arduino sketch for sensor data collection
+│   │   │   └── lora_config.py   # LoRaWAN communication setup
+│   │   └── schematics/          # Circuit diagrams and PCB designs
+│   │       └── sensor_v1.pdf    
+│   └── drones/                  # UAV control logic (simulated if hardware unavailable)
+│       ├── ros_simulation/      # ROS nodes for drone simulation
+│       └── dispersal_algorithm/ # Code for pollutant dispersal logic
+
+├── backend/                     # Cloud/Edge Processing
+│   ├── api/                     # FastAPI/Node.js server
+│   │   ├── main.py              # API endpoints for sensor data
+│   │   └── traffic_integration/ # Traffic light control logic
+│   ├── data_pipeline/           # Real-time data processing
+│   │   ├── kafka_producer.py    # Sensor data ingestion
+│   │   ├── flink_jobs/          # Apache Flink streaming jobs
+│   │   └── anomaly_detection/   # Spike detection algorithms
+│   └── database/                # Time-series data setup
+│       ├── influxdb_config.yml  
+│       └── timescale_schema.sql 
+
+├── ai_models/                   # ML Training and Inference
+│   ├── data_processing/         # Preprocessing scripts
+│   │   ├── wind_patterns.csv    # Sample dataset
+│   │   └── preprocess.py        
+│   ├── gnn_pollution/           # Graph Neural Network code
+│   │   ├── model.py             # PyTorch Geometric model
+│   │   └── train_gnn.ipynb      
+│   ├── lstm_forecasting/        # Time-series prediction
+│   │   ├── prophet_model.py     
+│   │   └── lstm_training.py     
+│   └── edge_inference/          # TensorFlow Lite models for ESP32
+│       └── quantized_model.tflite
+
+├── blockchain/                  # Hyperledger Fabric Integration
+│   ├── chaincode/               # Smart contracts for data integrity
+│   │   └── sensor_cc.go         
+│   └── network_config/          # Fabric network setup files
+│       └── docker-compose.yml   
+
+├── dashboard/                   # Frontend Visualization
+│   ├── public/                  # React.js build files
+│   │   └── index.html           
+│   ├── src/                     
+│   │   ├── components/          # Mapbox/AR.js components
+│   │   ├── contexts/            # Sensor data context
+│   │   └── App.jsx              # Main dashboard logic
+│   └── ar_overlays/             # AR.js pollution visualization
+│       └── ar_pollution.html    
+
+├── docs/                        # Documentation
+│   ├── ARCHITECTURE.md          # System design overview
+│   ├── SETUP.md                 # Hardware/software setup guide
+│   └── USER_MANUAL.md           # Dashboard usage instructions
+
+├── devops/                      # Deployment and CI/CD
+│   ├── docker/                  
+│   │   ├── sensor.Dockerfile    # Containerized sensor emulator
+│   │   └── api.Dockerfile       
+│   ├── kubernetes/              # Cluster deployment files
+│   └── github_actions/          # CI/CD workflows
+│       └── main.yml             
+
+├── tests/                       # Testing scripts
+│   ├── unit_tests/              # Pytest for API/models
+│   └── integration_tests/       # End-to-end pipeline tests
+
+├── scripts/                     # Utility scripts
+│   ├── simulate_sensor_data.py  # Generate mock sensor data
+│   └── deploy_drones.py         # Drone control simulation
+
+├── .env.template                # Environment variables template
+├── LICENSE                      # Open-source license (MIT/Apache)
+├── requirements.txt             # Python dependencies
+├── README.md                    # Project overview + repo navigation
+└── .gitignore
+```
