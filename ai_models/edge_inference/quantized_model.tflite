@@ -1,0 +1,34 @@
+import tensorflow as tf
+import numpy as np
+
+# 1. Train a small model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(8, activation='relu', input_shape=(6,)),
+    tf.keras.layers.Dense(1)
+])
+model.compile(optimizer='adam', loss='mse')
+
+# 2. Convert to TFLite with quantization
+converter = tf.lite.TFLiteConverter.from_keras_model(model)
+converter.optimizations = [tf.lite.Optimize.DEFAULT]
+converter.representative_dataset = lambda: [[np.random.rand(1,6).astype(np.float32)]]
+
+tflite_model = converter.convert()
+
+# 3. Save
+with open('quantized_model.tflite', 'wb') as f:
+    f.write(tflite_model)
+
+# ESP32 Inference Example (pseudo-code)
+"""
+#include <TensorFlowLite.h>
+#include <tensorflow/lite/micro/all_ops_resolver.h>
+
+const tflite::Model* model = ::tflite::GetModel(quantized_model);
+tflite::MicroInterpreter interpreter(model, resolver, tensor_arena, 2000);
+
+float input[6] = {pm25, pm10, temp, humidity, wind_speed, wind_dir};
+interpreter.input(0)->data.f = input;
+interpreter.Invoke();
+float prediction = interpreter.output(0)->data.f[0];
+"""
