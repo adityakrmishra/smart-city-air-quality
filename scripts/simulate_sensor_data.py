@@ -1,112 +1,158 @@
 #!/usr/bin/env python3
+import json
 import random
 import time
-import json
 import argparse
-from datetime import datetime
-from kafka import KafkaProducer
-from typing import Dict, Any
+import threading
+from typing import Dict, List, Tuple
+from kafka import KafkaConsumer, KafkaProducer
 
-class SensorSimulator:
-    """Simulates IoT air quality sensors and sends data to Kafka"""
+class DroneController:
+    """Simulates drone fleet deployment based on pollution alerts"""
     
     def __init__(self, config: Dict[str, Any]):
-        self.sensor_count = config['sensor_count']
-        self.interval = config['interval']
+        self.drone_count = config['drone_count']
         self.broker = config['broker']
-        self.running = True
-        self.producer = KafkaProducer(
+        self.base_location = config['base_location']
+        self.pollution_threshold = config['pollution_threshold']
+        
+        # Initialize drone fleet
+        self.drones = {
+            f'drone_{i}': {
+                'status': 'available',
+                'battery': 100,
+                'location': self.base_location,
+                'payload': 1000  # ml of dispersant
+            }
+            for i in range(self.drone_count)
+        }
+        
+        # Kafka setup
+        self.consumer = KafkaConsumer(
+            'pollution-alerts',
             bootstrap_servers=self.broker,
-            value_serializer=lambda v: json.dumps(v).encode('utf-8'),
-            acks='all'
+            auto_offset_reset='latest',
+            value_deserializer=lambda x: json.loads(x.decode('utf-8'))
         )
         
-        # Sensor location boundaries (example: New York City area)
-        self.min_lat = 40.4774
-        self.max_lat = 40.9176
-        self.min_lon = -74.2591
-        self.max_lon = -73.7004
-        
-        # Initialize sensor states
-        self.sensors = {
-            f'sensor_{i}': {
-                'base_pm25': random.uniform(5, 25),
-                'base_pm10': random.uniform(10, 40),
-                'base_co2': random.uniform(400, 600),
-                'lat': random.uniform(self.min_lat, self.max_lat),
-                'lon': random.uniform(self.min_lon, self.max_lon)
-            }
-            for i in range(self.sensor_count)
-        }
+        self.producer = KafkaProducer(
+            bootstrap_servers=self.broker,
+            value_serializer=lambda v: json.dumps(v).encode('utf-8')
+        )
 
-    def generate_sensor_data(self, sensor_id: str) -> Dict[str, Any]:
-        """Generate realistic sensor readings with occasional spikes"""
-        sensor = self.sensors[sensor_id]
+    def calculate_optimal_route(self, alert_location: Tuple[float, float]) -> str:
+        """Find best available drone for deployment"""
+        available_drones = [
+            drone_id for drone_id, data in self.drones.items()
+            if data['status'] == 'available'
+        ]
         
-        # Simulate normal fluctuation
-        pm25 = sensor['base_pm25'] * random.uniform(0.9, 1.1)
-        pm10 = sensor['base_pm10'] * random.uniform(0.9, 1.15)
-        co2 = sensor['base_co2'] * random.uniform(0.95, 1.05)
-
-        # 15% chance of pollution spike
-        if random.random() < 0.15:
-            pm25 *= random.uniform(2, 8)
-            pm10 *= random.uniform(1.5, 4)
-            co2 *= random.uniform(1.2, 3)
+        if not available_drones:
+            return None
             
-        return {
-            'sensor_id': sensor_id,
-            'timestamp': datetime.utcnow().isoformat(),
-            'location': {
-                'lat': round(sensor['lat'], 6),
-                'lon': round(sensor['lon'], 6)
-            },
-            'readings': {
-                'pm2_5': round(max(0, pm25), 1),
-                'pm10': round(max(0, pm10), 1),
-                'co2': round(max(300, co2), 0)
-            },
-            'status': {
-                'battery': random.randint(75, 100),
-                'signal': random.randint(1, 5)
-            }
-        }
+        # Simple distance calculation (Haversine would be better)
+        def distance(drone_id):
+            lat1, lon1 = self.drones[drone_id]['location']
+            lat2, lon2 = alert_location
+            return ((lat2-lat1)**2 + (lon2-lon1)**2)**0.5
+            
+        return min(available_drones, key=distance)
 
-    def run(self):
-        """Main simulation loop"""
+    def simulate_deployment(self, drone_id: str, target: Tuple[float, float]):
+        """Simulate drone deployment sequence"""
         try:
-            while self.running:
-                for sensor_id in self.sensors:
-                    data = self.generate_sensor_data(sensor_id)
-                    self.producer.send('raw-sensor-data', data)
-                    print(f"Sent data: {json.dumps(data, indent=2)}")
+            # Update drone status
+            self.drones[drone_id]['status'] = 'deploying'
+            
+            # Simulate travel time (1s = 1km)
+            start_lat, start_lon = self.drones[drone_id]['location']
+            distance = ((target[0]-start_lat)**2 + (target[1]-start_lon)**2)**0.5
+            travel_time = distance * 111 * 2  # 111km/degree * 2x speed factor
+            
+            print(f"Drone {drone_id} deploying to {target} - ETA: {travel_time:.1f}s")
+            time.sleep(travel_time)
+            
+            # Start dispersal
+            self.drones[drone_id]['status'] = 'active'
+            dispersal_time = min(
+                self.drones[drone_id]['payload'] / 50,  # 50ml/s dispersal rate
+                30  # max 30 seconds
+            )
+            
+            print(f"Drone {drone_id} dispersing chemicals for {dispersal_time}s")
+            time.sleep(dispersal_time)
+            
+            # Return to base
+            self.drones[drone_id]['status'] = 'returning'
+            time.sleep(travel_time)
+            
+            # Update final state
+            self.drones[drone_id].update({
+                'status': 'available',
+                'location': self.base_location,
+                'battery': max(0, self.drones[drone_id]['battery'] - 10),
+                'payload': 1000
+            })
+            
+            print(f"Drone {drone_id} mission complete")
+            
+        except Exception as e:
+            print(f"Error in drone {drone_id} mission: {str(e)}")
+            self.drones[drone_id]['status'] = 'error'
+
+    def process_alerts(self):
+        """Main alert processing loop"""
+        print("Listening for pollution alerts...")
+        for message in self.consumer:
+            alert = message.value
+            print(f"Received alert: {json.dumps(alert, indent=2)}")
+            
+            if alert['severity'] < self.pollution_threshold:
+                continue
                 
-                time.sleep(self.interval)
+            # Find best drone for deployment
+            target = (alert['location']['lat'], alert['location']['lon'])
+            drone_id = self.calculate_optimal_route(target)
+            
+            if drone_id:
+                print(f"Dispatching {drone_id} to {alert['location']}")
+                # Start deployment in separate thread
+                threading.Thread(
+                    target=self.simulate_deployment,
+                    args=(drone_id, target)
+                ).start()
                 
-        except KeyboardInterrupt:
-            print("\nSimulation stopped by user")
-        finally:
-            self.producer.close()
+                # Send deployment status
+                self.producer.send('drone-deployments', {
+                    'alert_id': alert['alert_id'],
+                    'drone_id': drone_id,
+                    'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    'status': 'dispatched'
+                })
+            else:
+                print("No available drones for deployment!")
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Air Quality Sensor Simulator')
-    parser.add_argument('-n', '--sensors', type=int, default=5,
-                       help='Number of sensors to simulate')
-    parser.add_argument('-i', '--interval', type=float, default=15.0,
-                       help='Seconds between sensor readings')
+    parser = argparse.ArgumentParser(description='Drone Deployment Simulator')
+    parser.add_argument('-n', '--drones', type=int, default=3,
+                       help='Number of drones in fleet')
     parser.add_argument('-b', '--broker', default='localhost:9092',
                        help='Kafka broker address')
-    parser.add_argument('--infinite', action='store_true',
-                       help='Run indefinitely')
+    parser.add_argument('-t', '--threshold', type=float, default=35.0,
+                       help='PM2.5 threshold for deployment')
+    parser.add_argument('--base-lat', type=float, default=40.7128,
+                       help='Base station latitude')
+    parser.add_argument('--base-lon', type=float, default=-74.0060,
+                       help='Base station longitude')
     
     args = parser.parse_args()
     
     config = {
-        'sensor_count': args.sensors,
-        'interval': args.interval,
-        'broker': args.broker
+        'drone_count': args.drones,
+        'broker': args.broker,
+        'pollution_threshold': args.threshold,
+        'base_location': (args.base_lat, args.base_lon)
     }
     
-    simulator = SensorSimulator(config)
-    print(f"Starting simulation with {args.sensors} sensors...")
-    simulator.run()
+    controller = DroneController(config)
+    controller.process_alerts()
